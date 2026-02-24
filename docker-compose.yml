@@ -1,0 +1,100 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pushnami
+      POSTGRES_USER: pushnami
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pushnami_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pushnami"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pushnami-net
+
+  ab-service:
+    build:
+      context: ./ab-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pushnami:${POSTGRES_PASSWORD:-pushnami_secret}@postgres:5432/pushnami
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pushnami-net
+
+  metrics-service:
+    build:
+      context: ./metrics-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pushnami:${POSTGRES_PASSWORD:-pushnami_secret}@postgres:5432/pushnami
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pushnami-net
+
+  landing-page:
+    build:
+      context: ./landing-page
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+      AB_SERVICE_URL: http://ab-service:8000
+      METRICS_SERVICE_URL: http://metrics-service:8000
+      AB_SERVICE_PUBLIC_URL: http://localhost:8002
+      METRICS_SERVICE_PUBLIC_URL: http://localhost:8001
+    ports:
+      - "3000:3000"
+    depends_on:
+      ab-service:
+        condition: service_healthy
+      metrics-service:
+        condition: service_healthy
+    networks:
+      - pushnami-net
+
+  admin-app:
+    build:
+      context: ./admin-app
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    depends_on:
+      ab-service:
+        condition: service_healthy
+      metrics-service:
+        condition: service_healthy
+    networks:
+      - pushnami-net
+
+volumes:
+  postgres_data:
+
+networks:
+  pushnami-net:
+    driver: bridge
