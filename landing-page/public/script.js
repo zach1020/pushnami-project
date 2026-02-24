@@ -311,6 +311,52 @@
     });
   }
 
+  // --- Prophecies Fulfilled metric ticker ---
+  function initMetricTickers() {
+    const section = document.getElementById("metrics");
+    if (!section) return;
+
+    let fired = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (fired || !entries[0].isIntersecting) return;
+        fired = true;
+
+        // Animate ring fills
+        section.querySelectorAll(".ring-fill[data-progress]").forEach((circle) => {
+          const target = parseFloat(circle.dataset.progress);
+          circle.style.setProperty("--progress", target);
+        });
+
+        // Animate number tickers
+        section.querySelectorAll(".metric-value[data-target]").forEach((el) => {
+          const target = parseFloat(el.dataset.target);
+          const suffix = el.dataset.suffix || "";
+          const isDecimal = target % 1 !== 0;
+          const duration = 2000;
+          const start = performance.now();
+
+          function tick(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = target * eased;
+
+            el.textContent = (isDecimal ? current.toFixed(1) : Math.floor(current)) + suffix;
+
+            if (progress < 1) requestAnimationFrame(tick);
+          }
+
+          requestAnimationFrame(tick);
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(section);
+  }
+
   // --- Greek Character Rain Effect ---
   function initMatrixRain() {
     const canvas = document.getElementById("matrix-rain");
@@ -1274,6 +1320,7 @@
   // --- Initialize ---
   document.addEventListener("DOMContentLoaded", function () {
     animateCounters();
+    initMetricTickers();
     initMatrixRain();
     initSculpture();
     initSculptureScrollRotation();

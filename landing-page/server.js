@@ -372,9 +372,9 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         <div class="metric-ring">
           <svg viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="45" class="ring-bg"/>
-            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 340"/>
+            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 0" data-progress="340"/>
           </svg>
-          <span class="metric-value">94%</span>
+          <span class="metric-value" data-target="94" data-suffix="%">0%</span>
         </div>
         <span class="metric-label">Delivery Rate</span>
       </div>
@@ -382,9 +382,9 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         <div class="metric-ring">
           <svg viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="45" class="ring-bg"/>
-            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 270"/>
+            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 0" data-progress="270"/>
           </svg>
-          <span class="metric-value">3.2x</span>
+          <span class="metric-value" data-target="3.2" data-suffix="x">0x</span>
         </div>
         <span class="metric-label">ROI Multiplier</span>
       </div>
@@ -392,9 +392,9 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         <div class="metric-ring">
           <svg viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="45" class="ring-bg"/>
-            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 300"/>
+            <circle cx="50" cy="50" r="45" class="ring-fill" style="--progress: 0" data-progress="300"/>
           </svg>
-          <span class="metric-value">18ms</span>
+          <span class="metric-value" data-target="18" data-suffix="ms">0ms</span>
         </div>
         <span class="metric-label">Avg Response</span>
       </div>
