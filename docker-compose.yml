@@ -62,6 +62,9 @@ services:
     build:
       context: ./landing-page
       dockerfile: Dockerfile
+    volumes:
+      - ./landing-page/server.js:/app/server.js
+      - ./landing-page/public:/app/public
     environment:
       PORT: 3000
       AB_SERVICE_URL: http://ab-service:8000

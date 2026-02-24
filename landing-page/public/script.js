@@ -749,6 +749,389 @@
     loadTrack(0);
   }
 
+  // --- Cyber Building Scroll Animation ---
+  function initCyberBuilding() {
+    const section = document.getElementById("cyber-building");
+    const img = document.getElementById("cyber-building-img");
+    const progressEl = document.getElementById("cyber-building-progress");
+    if (!section || !img) return;
+
+    const TOTAL_FRAMES = 60;
+    const PREFIX = "/images/cyber-building/grok-video-a90209b8-1c90-444c-83bc-59af24a0f77b_";
+
+    // Build frame paths
+    const framePaths = [];
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
+      framePaths.push(PREFIX + String(i).padStart(3, "0") + ".jpg");
+    }
+
+    // Preload all frames into Image objects
+    const frames = framePaths.map((src) => {
+      const image = new Image();
+      image.src = src;
+      return image;
+    });
+
+    let currentFrame = -1;
+    const contactSection = document.getElementById("contact");
+
+    // --- Particle system (two fixed canvases: behind + in front of video) ---
+    const backCanvas = document.createElement("canvas");
+    backCanvas.className = "cyber-particles-layer cyber-particles-back";
+    document.body.appendChild(backCanvas);
+
+    const frontCanvas = document.createElement("canvas");
+    frontCanvas.className = "cyber-particles-layer cyber-particles-front";
+    document.body.appendChild(frontCanvas);
+
+    const backCtx = backCanvas.getContext("2d");
+    const frontCtx = frontCanvas.getContext("2d");
+    const particles = [];
+    let lastScrollY = window.scrollY;
+    let scrollDir = -1; // -1 = up (scroll down), 1 = down (scroll up)
+    let particleRafId = null;
+
+    function sizeParticleCanvases() {
+      backCanvas.width = frontCanvas.width = window.innerWidth;
+      backCanvas.height = frontCanvas.height = window.innerHeight;
+    }
+    sizeParticleCanvases();
+    window.addEventListener("resize", sizeParticleCanvases);
+
+    function spawnParticles(count, intensity, dir) {
+      const w = frontCanvas.width;
+      const h = frontCanvas.height;
+      for (let i = 0; i < count; i++) {
+        const x = w * 0.1 + Math.random() * w * 0.8;
+        const y = h * 0.3 + Math.random() * h * 0.5;
+        const size = 2 + Math.random() * 4;
+        particles.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: dir * (0.8 + Math.random() * 1.8),
+          size,
+          alpha: (0.5 + Math.random() * 0.5) * intensity,
+          life: 1.0,
+          decay: 0.004 + Math.random() * 0.008,
+          layer: Math.random() < 0.5 ? "back" : "front",
+        });
+      }
+    }
+
+    function drawParticle(ctx, p) {
+      const a = p.alpha * p.life;
+
+      // Outer glow
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(1, 205, 254, ${(a * 0.2).toFixed(3)})`;
+      ctx.fill();
+
+      // Mid glow
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(1, 205, 254, ${(a * 0.5).toFixed(3)})`;
+      ctx.fill();
+
+      // Bright core
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(220, 245, 255, ${(a * 0.95).toFixed(3)})`;
+      ctx.fill();
+    }
+
+    function tickParticles() {
+      backCtx.clearRect(0, 0, backCanvas.width, backCanvas.height);
+      frontCtx.clearRect(0, 0, frontCanvas.width, frontCanvas.height);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        // Smoothly steer vy toward current scroll direction
+        const targetVy = scrollDir * Math.abs(p.vy);
+        p.vy += (targetVy - p.vy) * 0.08;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        drawParticle(p.layer === "back" ? backCtx : frontCtx, p);
+      }
+
+      if (particles.length > 0) {
+        particleRafId = requestAnimationFrame(tickParticles);
+      } else {
+        particleRafId = null;
+      }
+    }
+
+    function onScroll() {
+      const rect = section.getBoundingClientRect();
+      const sectionTop = -rect.top;
+      const scrollableHeight = section.offsetHeight - window.innerHeight;
+
+      if (scrollableHeight <= 0) return;
+
+      const progress = Math.max(0, Math.min(1, sectionTop / scrollableHeight));
+      const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(progress * TOTAL_FRAMES));
+
+      if (frameIndex !== currentFrame && frameIndex >= 0 && frameIndex < TOTAL_FRAMES) {
+        currentFrame = frameIndex;
+        img.src = frames[frameIndex].src;
+        if (progressEl) {
+          progressEl.textContent =
+            String(frameIndex).padStart(3, "0") + " / " + String(TOTAL_FRAMES - 1).padStart(3, "0");
+        }
+      }
+
+      // Drive the electric blue glow intensity based on proximity to contact section
+      if (contactSection) {
+        const glowIntensity = Math.max(0, Math.min(1, (progress - 0.3) / 0.7));
+        const eased = glowIntensity * glowIntensity;
+        contactSection.style.setProperty("--glow-intensity", eased.toFixed(3));
+      }
+
+      // Spawn particles on scroll
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY;
+      const absDelta = Math.abs(scrollDelta);
+      // Scroll down → particles float up (-1), scroll up → particles float down (+1)
+      if (absDelta > 1) scrollDir = scrollDelta > 0 ? -1 : 1;
+      lastScrollY = currentScrollY;
+
+      const inSection = progress > 0.02 && progress < 0.98;
+      const showCanvases = inSection || particles.length > 0 ? "block" : "none";
+      backCanvas.style.display = showCanvases;
+      frontCanvas.style.display = showCanvases;
+
+      if (absDelta > 1 && inSection) {
+        const spawnCount = Math.min(3, Math.ceil(absDelta / 12));
+        const intensity = 0.4 + progress * 0.6;
+        spawnParticles(spawnCount, intensity, scrollDir);
+
+        if (!particleRafId) {
+          particleRafId = requestAnimationFrame(tickParticles);
+        }
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
+
+  // --- Cursor Orb ---
+  function initCursorOrb() {
+    const orb = document.createElement("div");
+    orb.className = "cursor-orb";
+    orb.innerHTML = '<span class="cursor-orb-ring"></span><span class="cursor-orb-ring2"></span>';
+    document.body.appendChild(orb);
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    // Anchor follows the cursor with a long delay
+    let anchorX = mouseX;
+    let anchorY = mouseY;
+    let orbAngle = 0;
+    let time = 0;
+
+    const ORBIT_RADIUS = 30;
+    const ORBIT_SPEED = 1.8;
+    const ANCHOR_EASE = 0.018; // slower = longer delay
+
+    let jitterX = 0;
+    let jitterY = 0;
+
+    document.addEventListener("mousemove", function (e) {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    document.addEventListener("click", function () {
+      jitterX = (Math.random() - 0.5) * 60;
+      jitterY = (Math.random() - 0.5) * 60;
+    });
+
+    function tick() {
+      time += 0.016;
+
+      // Decay jitter
+      jitterX *= 0.9;
+      jitterY *= 0.9;
+
+      // Anchor lazily chases the cursor
+      anchorX += (mouseX - anchorX) * ANCHOR_EASE;
+      anchorY += (mouseY - anchorY) * ANCHOR_EASE;
+
+      // Orbit around the anchor point
+      orbAngle += ORBIT_SPEED * 0.016;
+      const orbX = anchorX + Math.cos(orbAngle) * ORBIT_RADIUS + jitterX;
+      const orbY = anchorY + Math.sin(orbAngle) * ORBIT_RADIUS + jitterY;
+
+      orb.style.left = orbX + "px";
+      orb.style.top = orbY + "px";
+
+      // Proximity detection — distance from orb to actual cursor
+      const dx = mouseX - orbX;
+      const dy = mouseY - orbY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      const NEAR_THRESHOLD = 35;
+      if (dist < NEAR_THRESHOLD) {
+        orb.classList.add("near");
+      } else {
+        orb.classList.remove("near");
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // --- Neon Selection Box ---
+  function initNeonSelect() {
+    let box = null;
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+
+    document.addEventListener("mousedown", function (e) {
+      // Don't trigger on buttons, inputs, links, or the music player
+      if (e.target.closest("button, input, a, .retro-player, .cyber-btn")) return;
+
+      startX = e.clientX;
+      startY = e.clientY;
+      dragging = true;
+
+      box = document.createElement("div");
+      box.className = "neon-select-box";
+      box.style.left = startX + "px";
+      box.style.top = startY + "px";
+      box.style.width = "0px";
+      box.style.height = "0px";
+      document.body.appendChild(box);
+    });
+
+    document.addEventListener("mousemove", function (e) {
+      if (!dragging || !box) return;
+
+      const x = Math.min(e.clientX, startX);
+      const y = Math.min(e.clientY, startY);
+      const w = Math.abs(e.clientX - startX);
+      const h = Math.abs(e.clientY - startY);
+
+      box.style.left = x + "px";
+      box.style.top = y + "px";
+      box.style.width = w + "px";
+      box.style.height = h + "px";
+    });
+
+    document.addEventListener("mouseup", function () {
+      if (!dragging || !box) return;
+      dragging = false;
+
+      const rect = box.getBoundingClientRect();
+      const deadBox = box;
+      box = null;
+
+      // Too small = just a click, discard
+      if (rect.width < 8 || rect.height < 8) {
+        deadBox.remove();
+        return;
+      }
+
+      // Disintegrate: spawn fragments, remove the box
+      disintegrate(deadBox, rect);
+    });
+
+    // Reusable canvas for disintegration — no DOM element spam
+    const disintCanvas = document.createElement("canvas");
+    disintCanvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9997;display:none;";
+    document.body.appendChild(disintCanvas);
+    const disintCtx = disintCanvas.getContext("2d");
+    let disintFragments = [];
+    let disintRafId = null;
+
+    function sizeDisintCanvas() {
+      disintCanvas.width = window.innerWidth;
+      disintCanvas.height = window.innerHeight;
+    }
+    sizeDisintCanvas();
+    window.addEventListener("resize", sizeDisintCanvas);
+
+    function disintegrate(el, rect) {
+      const COLS = Math.max(2, Math.ceil(rect.width / 24));
+      const ROWS = Math.max(2, Math.ceil(rect.height / 24));
+      const fragW = rect.width / COLS;
+      const fragH = rect.height / ROWS;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const fx = rect.left + c * fragW;
+          const fy = rect.top + r * fragH;
+          disintFragments.push({
+            x: fx, y: fy, w: fragW, h: fragH,
+            vx: (fx - cx) * 0.02 + (Math.random() - 0.5) * 3,
+            vy: (fy - cy) * 0.02 + (Math.random() - 0.5) * 3 - 1,
+            alpha: 1,
+            rot: 0,
+            rotV: (Math.random() - 0.5) * 0.15,
+          });
+        }
+      }
+
+      el.remove();
+      disintCanvas.style.display = "block";
+
+      if (!disintRafId) {
+        disintRafId = requestAnimationFrame(tickDisint);
+      }
+    }
+
+    function tickDisint() {
+      disintCtx.clearRect(0, 0, disintCanvas.width, disintCanvas.height);
+
+      for (let i = disintFragments.length - 1; i >= 0; i--) {
+        const f = disintFragments[i];
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vy += 0.1;
+        f.rot += f.rotV;
+        f.alpha -= 0.04;
+
+        if (f.alpha <= 0) {
+          disintFragments.splice(i, 1);
+          continue;
+        }
+
+        disintCtx.save();
+        disintCtx.translate(f.x + f.w / 2, f.y + f.h / 2);
+        disintCtx.rotate(f.rot);
+        const s = 0.5 + f.alpha * 0.5;
+        disintCtx.scale(s, s);
+        disintCtx.globalAlpha = f.alpha;
+        disintCtx.fillStyle = "rgba(1, 205, 254, 0.7)";
+        disintCtx.shadowColor = "rgba(1, 205, 254, 0.5)";
+        disintCtx.shadowBlur = 4;
+        disintCtx.fillRect(-f.w / 2, -f.h / 2, f.w, f.h);
+        disintCtx.restore();
+      }
+
+      if (disintFragments.length > 0) {
+        disintRafId = requestAnimationFrame(tickDisint);
+      } else {
+        disintRafId = null;
+        disintCanvas.style.display = "none";
+      }
+    }
+  }
+
   // --- Initialize ---
   document.addEventListener("DOMContentLoaded", function () {
     animateCounters();
@@ -756,6 +1139,9 @@
     initSculpture();
     initSculptureScrollRotation();
     initMusicPlayer();
+    initCyberBuilding();
+    initCursorOrb();
+    initNeonSelect();
   });
 
   // Track time on page

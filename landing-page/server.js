@@ -394,6 +394,38 @@ function renderPage(visitorId, variant, experimentId, toggles) {
       : ""
   }
 
+  <!-- Cyber Building Scroll Animation -->
+  <section class="cyber-building-section" id="cyber-building">
+    <div class="cyber-building-sticky">
+      <div class="cyber-building-frame-outer">
+        <div class="cyber-building-frame-border">
+          <span class="frame-corner frame-corner-tl"></span>
+          <span class="frame-corner frame-corner-tr"></span>
+          <span class="frame-corner frame-corner-bl"></span>
+          <span class="frame-corner frame-corner-br"></span>
+          <span class="frame-edge frame-edge-top"></span>
+          <span class="frame-edge frame-edge-bottom"></span>
+          <span class="frame-edge frame-edge-left"></span>
+          <span class="frame-edge frame-edge-right"></span>
+          <div class="cyber-building-frame-wrap">
+            <img
+              id="cyber-building-img"
+              src="/images/cyber-building/grok-video-a90209b8-1c90-444c-83bc-59af24a0f77b_000.jpg"
+              alt="Digital Temple Ascending"
+              class="cyber-building-img"
+            />
+            <div class="cyber-building-vignette"></div>
+          </div>
+        </div>
+        <div class="frame-glow"></div>
+      </div>
+      <p class="cyber-building-caption">
+        <span class="cyber-building-tag">\u0399\u0395\u03A1\u039F\u039D \u00B7 TEMPLE</span>
+        <span class="cyber-building-progress" id="cyber-building-progress">000 / 059</span>
+      </p>
+    </div>
+  </section>
+
   <!-- Contact / CTA Section -->
   <section id="contact" class="contact-section">
     <div class="contact-content">

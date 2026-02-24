@@ -1,222 +1,106 @@
 # PUSHNAMI // Landing Page Tracking System
 
-A multi-service landing page system with A/B testing, real-time metrics tracking, and an admin dashboard. Built with a **vaporwave neo-classical** aesthetic featuring animated 3D models, Greek character rain, neon lightning effects, and a retro floating music player.
+A multi-service landing page with A/B testing, real-time metrics, and an admin dashboard. Vaporwave neo-classical aesthetic — think digital marble, neon glows, and Greek philosophy meets cyberpunk.
 
-## Architecture
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Landing Page   │────▶│  A/B Test        │     │  Admin App      │
-│  (Node/Express) │     │  Service         │◀────│  (React SPA)    │
-│  :3000          │     │  (FastAPI)       │     │  :3001          │
-│                 │     │  :8002           │     │                 │
-│  - SSR variants │     │  - Experiments   │     │  - Dashboard    │
-│  - 3D model     │     │  - Assignments   │     │  - Experiments  │
-│  - Music player │     │  - Toggles       │     │  - Toggles      │
-│  - MP3 upload   │     │                  │     │  - Event log    │
-│    API          │     │                  │     │  - Music mgmt   │
-└──────┬──────────┘     └──────────────────┘     └────────┬────────┘
-       │                                                  │
-       │             ┌──────────────────┐                 │
-       └────────────▶│  Metrics         │◀────────────────┘
-                     │  Service         │
-                     │  (FastAPI)       │
-                     │  :8001           │
-                     └────────┬─────────┘
-                              │
-                     ┌────────▼─────────┐
-                     │  PostgreSQL 16   │
-                     │  :5432           │
-                     └──────────────────┘
-```
-
-### Services
-
-| Service | Tech Stack | Port | Purpose |
-|---------|-----------|------|---------|
-| **Landing Page** | Node.js, Express, multer | 3000 | SSR page with A/B variants, 3D model, music player, and MP3 upload API |
-| **Metrics Service** | Python 3.12, FastAPI, SQLAlchemy | 8001 | Event ingestion, filtered listing, and aggregated stats with conversion rates |
-| **A/B Test Service** | Python 3.12, FastAPI, SQLAlchemy | 8002 | Experiment CRUD, deterministic variant assignment, feature toggles |
-| **Admin App** | React 18, Vite, Recharts, nginx | 3001 | Real-time dashboard, experiment management, toggles, music library management |
-| **PostgreSQL** | PostgreSQL 16 Alpine | 5432 | Shared persistent data store with JSONB support |
-
-## How to Start
-
-### Prerequisites
-
-- Docker and Docker Compose installed
-
-### Launch
+## Quick Start
 
 ```bash
 docker compose up --build
 ```
 
-All five containers will start with proper health-check ordering (Postgres first, then backend services, then frontend services). First startup takes ~60 seconds for image builds.
-
-### Access
-
 | URL | What |
 |-----|------|
-| [http://localhost:3000](http://localhost:3000) | Landing page (auto-assigned variant) |
-| [http://localhost:3000/?variant=neon](http://localhost:3000/?variant=neon) | Landing page forced to **Neon/Olympus** variant |
-| [http://localhost:3000/?variant=synthwave](http://localhost:3000/?variant=synthwave) | Landing page forced to **Synthwave/Agora** variant |
-| [http://localhost:3001](http://localhost:3001) | Admin dashboard |
-| [http://localhost:8002/docs](http://localhost:8002/docs) | A/B Service Swagger UI |
-| [http://localhost:8001/docs](http://localhost:8001/docs) | Metrics Service Swagger UI |
+| [localhost:3000](http://localhost:3000) | Landing page |
+| [localhost:3000/?variant=neon](http://localhost:3000/?variant=neon) | Force Neon variant |
+| [localhost:3000/?variant=synthwave](http://localhost:3000/?variant=synthwave) | Force Synthwave variant |
+| [localhost:3001](http://localhost:3001) | Admin dashboard |
+| [localhost:8002/docs](http://localhost:8002/docs) | A/B Service API docs |
+| [localhost:8001/docs](http://localhost:8001/docs) | Metrics Service API docs |
 
-The system seeds a default experiment ("Landing Page Theme" with neon/synthwave variants), four feature toggles, and three music tracks on first startup.
+Teardown: `docker compose down` (add `-v` to wipe the database).
 
-### Teardown
+## Architecture
 
-```bash
-docker compose down           # stop containers
-docker compose down -v        # stop + delete database volume
 ```
+Landing Page (:3000)  ──▶  A/B Service (:8002)  ◀──  Admin App (:3001)
+       │                                                    │
+       └──────────────▶  Metrics Service (:8001)  ◀─────────┘
+                                  │
+                          PostgreSQL (:5432)
+```
+
+| Service | Stack | Purpose |
+|---------|-------|---------|
+| Landing Page | Node/Express | SSR page with A/B variants, 3D model, music player |
+| A/B Service | Python/FastAPI | Experiments, variant assignment, feature toggles |
+| Metrics Service | Python/FastAPI | Event ingestion and aggregated stats |
+| Admin App | React/Vite/nginx | Dashboard, experiment management, music library |
+| PostgreSQL | PostgreSQL 16 | Shared data store |
 
 ## How It Works
 
-1. A visitor hits the landing page at `:3000`
-2. The server assigns a persistent visitor ID via cookie, then requests a variant from the A/B Service (server-side, no client flash)
-3. The page renders with variant-specific theming, copy, and a 3D animated sculpture inside a rotating wireframe cube
-4. User interactions (page views, button clicks, form submissions, scroll depth, music player actions) are tracked as events sent to the Metrics Service
-5. The Admin App at `:3001` displays real-time dashboards, lets you manage experiments, toggle features, and upload music
+1. Visitor hits `:3000`, gets a cookie-based visitor ID
+2. Server resolves A/B variant and feature toggles server-side (no flash)
+3. Page renders with variant-specific theming, copy, and interactive features
+4. All interactions are tracked as events sent to the Metrics Service
+5. Admin dashboard at `:3001` shows real-time analytics and controls
 
-### A/B Test Variants
+## Interactive Features
 
-| Feature | Neon Variant | Synthwave Variant |
-|---------|-------------|-------------------|
-| Color palette | Pink / Lavender | Cyan / Mint |
-| Hero headline | "ASCEND TO OLYMPUS" | "ENTER THE AGORA" |
-| Primary CTA | "Begin Ascension" | "Seek Knowledge" |
-| Secondary CTA | "View the Prophecy" | "Read the Scrolls" |
+### Core
+- **3D Animated Sculpture** — GLB model with play/rewind on button click, scroll-based camera orbit, and a rotating wireframe cube
+- **Lightning Effects** — Neon pink bolts strike from the viewport top to cursor and the wireframe cube on click
+- **Music Player** — Floating retro TEMPLE.FM player with playlist, seek, volume, and tracks managed via admin
+- **Matrix Rain** — Greek character rain background animation
 
-### Feature Toggles
+### Scroll-Driven Video Animation
+A 60-frame decomposed animation of a cyberpunk temple, placed between "Echoes from Agora" and "Commune With Us." Frames scrub forward/backward based on scroll position. The video is framed with neon corner brackets and edge accents. The "Commune With Us" section slides out from beneath the video as you scroll past it.
 
-| Toggle | Key | Default | Description |
-|--------|-----|---------|-------------|
-| Matrix Rain Background | `matrix_rain` | ON | Greek character rain animation |
-| Hero Glitch Effect | `hero_glitch` | ON | Chromatic aberration glitch on headline |
-| Testimonials Section | `show_testimonials` | ON | Show/hide the testimonials section |
-| Music Player | `show_music_player` | ON | Floating TEMPLE.FM retro music player |
+### Electric Blue Glow
+A watercolor-style electric blue glow bleeds from the video into the contact section. The glow intensifies as the video approaches — driven by scroll progress with an ease-in curve.
 
-### Interactive Features
+### Scroll Particles
+Glowing cyan orbs spawn while scrolling through the video section. They float upward on scroll-down and downward on scroll-up, with two layers (some in front of the video, some clipped behind it).
 
-- **3D Animated Sculpture** — A model-viewer GLB model between the hero and features sections. First button click plays the animation forward (lying down to standing). Subsequent clicks alternate between rewinding and replaying. The model also slowly orbits as the user scrolls.
-- **Wireframe Cube** — A CSS 3D wireframe cube surrounds the sculpture, rotating counter-clockwise with neon purple edges.
-- **Lightning Effects** — Button clicks spawn neon pink lightning bolts from the top of the viewport to the cursor, plus a second bolt that strikes the wireframe cube with a flash effect.
-- **Music Player** — A floating retro pixel player in the bottom-right corner. Plays MP3 tracks with prev/next/play/pause controls, a seek bar, and a volume slider. Track list is loaded dynamically from the server API.
-- **Music Upload** — Admins can upload new MP3 files and delete existing ones via the admin dashboard. Changes are reflected immediately in the landing page player.
+### Cursor Orb
+A glowing orb that orbits the cursor with a delayed follow. On proximity intersection, it intensifies and spins with counter-rotating rings. Jitters on click.
 
-### Event Tracking
+### Neon Selection Box
+Click-and-drag anywhere to draw a neon cyan selection box with corner brackets. On release, it disintegrates into pixel fragments that scatter and fade.
 
-Every meaningful interaction generates a tracked event:
+## A/B Variants
 
-| Event Type | Event Names | Metadata |
-|-----------|-------------|----------|
-| `page_view` | `landing_page` | referrer, screen width |
-| `click` | `cta_primary`, `cta_secondary`, feature cards | element, text |
-| `click` | `music_play`, `music_pause`, `music_next`, `music_prev`, `music_track_select` | track name |
-| `form_submit` | `contact_form` | has_email, has_company |
-| `scroll` | `scroll_25`, `scroll_50`, `scroll_75`, `scroll_100` | percent |
-| `engagement` | `time_on_page` | seconds |
+| | Neon | Synthwave |
+|---|------|-----------|
+| Palette | Pink / Lavender | Cyan / Mint |
+| Hero | "ASCEND TO OLYMPUS" | "ENTER THE AGORA" |
+| CTA | "Begin Ascension" | "Seek Knowledge" |
 
-## Design Decisions
+## Feature Toggles
 
-### Technology Choices
-
-- **FastAPI (Python)** for backend services — Async-native, automatic OpenAPI/Swagger documentation, built-in request validation via Pydantic, and excellent performance for I/O-bound database workloads.
-- **Node.js/Express** for the landing page — Server-side rendering ensures the variant is resolved before the page reaches the browser, avoiding layout flash. The server fetches variant assignment and feature toggles via internal service-to-service calls, then injects them into the HTML template.
-- **React + Vite + Recharts** for the admin app — Fast development builds, optimized production output, and a proven component model for dashboards. Recharts provides clean data visualization. Served by nginx in production for efficient static file delivery.
-- **PostgreSQL** as the single data store — ACID-compliant, handles both relational data (experiments, assignments, toggles) and semi-structured data (event metadata via JSONB). Simpler operationally than running multiple databases.
-- **model-viewer 3.5** for 3D rendering — Google's web component provides cross-browser GLB rendering with built-in animation control, camera orbit, and no WebGL boilerplate.
-- **Docker Compose** for orchestration — All services communicate over an internal bridge network (`pushnami-net`). Only user-facing ports are exposed to the host.
-
-### Architectural Decisions
-
-- **Deterministic variant assignment** — Uses SHA-256 hashing of `visitor_id + experiment_id`, mapped to configurable traffic split percentages. This is deterministic (same visitor always gets the same variant), evenly distributed, and cacheable (existing assignments are stored in the database to avoid recomputation).
-- **Server-side variant resolution** — The landing page server resolves the variant before rendering. This prevents flash-of-unstyled-content and ensures consistent content for search engine crawlers.
-- **Feature toggles as a separate concern** — Stored in the A/B service database but with their own API surface (`GET/PUT /api/toggles`). The landing page consumes them server-side to conditionally render sections (testimonials, music player, effects).
-- **Event schema with JSONB metadata** — Events have typed, indexed fields (`event_type`, `variant`, `visitor_id`) for efficient querying, plus a flexible `metadata` JSONB column for arbitrary context per event type. This balances query performance with schema flexibility.
-- **Dynamic music library** — The music player loads its track list from `/api/tracks` rather than a hardcoded list. Combined with the upload/delete API, this allows the admin to manage the music library without code changes or redeployments.
-- **Variant override via query parameter** — Appending `?variant=neon` or `?variant=synthwave` lets QA testers and stakeholders preview specific variants without being locked to their cookie-assigned variant.
-
-## Production Readiness
-
-### Input Validation & Security
-
-- All API inputs are validated via **Pydantic models** with type constraints, length limits, and business rule validation (e.g., traffic splits must total 100%).
-- **CORS** is configured with explicit allowed origins on all services. Cookies use `SameSite=lax`.
-- **SQL injection** is prevented by SQLAlchemy's parameterized queries — no raw SQL string interpolation anywhere.
-- **File upload validation** — The MP3 upload endpoint validates MIME type, enforces a 20MB size limit, and restricts to `.mp3` files only via multer configuration.
-- **nginx security headers** — The admin app's nginx config adds `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` headers.
-
-### Reliability & Resilience
-
-- **Health checks on every service** — Each container exposes a `/health` endpoint. Docker Compose uses these for startup ordering (`depends_on: condition: service_healthy`) and continuous health monitoring.
-- **Graceful degradation** — If the A/B service or metrics service is unreachable, the landing page still renders with a default variant and silently skips event tracking, rather than showing an error page.
-- **Database connection pooling** — SQLAlchemy async engine is configured with `pool_size=10`, `max_overflow=20`, and `pool_pre_ping=True` for stale connection detection and recovery.
-- **Startup ordering** — Docker Compose health checks ensure PostgreSQL is fully ready before backend services start, and backend services are healthy before frontend services start. No race conditions on boot.
-
-### Performance & Efficiency
-
-- **Database indexing** — The events table has indexes on `visitor_id`, `event_type`, `variant`, `experiment_id`, and `created_at` for efficient filtering, aggregation, and time-range queries.
-- **Efficient Docker builds** — Python services use `python:3.12-slim` base images with `--no-cache-dir` pip installs. The admin app uses a **multi-stage build** (Node for building, nginx-alpine for serving), keeping the production image minimal.
-- **Static asset serving** — The landing page serves CSS, JS, music, and 3D model files via Express static middleware. The admin app serves its Vite build output via nginx.
-- **Async throughout** — Both Python services use async SQLAlchemy with `asyncpg`, and FastAPI's async request handling, ensuring no thread blocking on database I/O.
-
-### Observability
-
-- **Structured logging** — Backend services use Python's logging module with consistent formatting (timestamps, log levels, service names).
-- **Comprehensive event tracking** — Every user interaction is captured with structured metadata, enabling funnel analysis, A/B test evaluation, and engagement measurement.
-- **Real-time admin dashboard** — Auto-refreshing charts show event distribution, variant performance, conversion rates, and music player engagement metrics.
-- **Swagger/OpenAPI documentation** — Both backend services auto-generate interactive API documentation at `/docs`, making the APIs self-documenting and explorable.
+| Key | Default | Controls |
+|-----|---------|----------|
+| `matrix_rain` | ON | Greek character rain |
+| `hero_glitch` | ON | Chromatic aberration glitch |
+| `show_testimonials` | ON | Testimonials section |
+| `show_music_player` | ON | TEMPLE.FM music player |
 
 ## Project Structure
 
 ```
 pushnami-project/
-├── docker-compose.yml          # Orchestrates all 5 services
-├── .env                        # Environment variables
-├── db/
-│   └── init.sql                # Schema, indexes, seed data
-├── ab-service/                 # A/B Test Assignment Service (Python/FastAPI)
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py             # Endpoints: experiments, assignments, toggles
-│       ├── models.py           # SQLAlchemy models
-│       ├── schemas.py          # Pydantic request/response schemas
-│       └── database.py         # Async DB engine & session
-├── metrics-service/            # Metrics & Event Tracking Service (Python/FastAPI)
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py             # Endpoints: events, batch events, stats
-│       ├── models.py           # SQLAlchemy Event model
-│       ├── schemas.py          # Pydantic schemas with JSONB alias handling
-│       └── database.py         # Async DB engine & session
-├── landing-page/               # Landing Page (Node.js/Express)
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── server.js               # SSR template, variant logic, music API
+├── docker-compose.yml
+├── db/init.sql                  # Schema, indexes, seed data
+├── ab-service/                  # A/B Test Service (FastAPI)
+├── metrics-service/             # Metrics Service (FastAPI)
+├── landing-page/
+│   ├── server.js                # SSR template, variant logic, APIs
 │   └── public/
-│       ├── script.js           # Client-side: tracking, animation, lightning, music player
-│       ├── styles.css           # Vaporwave CSS: grid, cube, player, responsive
-│       ├── models/
-│       │   └── sculpture.glb   # Animated 3D model
-│       └── music/              # MP3 tracks (uploadable via admin)
-├── admin-app/                  # Admin Dashboard (React/Vite)
-│   ├── Dockerfile              # Multi-stage: Node build → nginx serve
-│   ├── nginx.conf
-│   ├── package.json
-│   └── src/
-│       ├── App.jsx             # Tab-based layout with sidebar
-│       ├── App.css             # Matching vaporwave admin theme
-│       ├── api.js              # API client for all services
-│       └── components/
-│           ├── Dashboard.jsx   # KPIs, charts, conversion table, music metrics
-│           ├── Experiments.jsx # CRUD for A/B experiments
-│           ├── FeatureToggles.jsx # Toggle switches + music library management
-│           └── EventLog.jsx    # Filterable real-time event stream
-└── music-mp3/                  # Source MP3 files
+│       ├── script.js            # Animations, particles, orb, tracking
+│       ├── styles.css           # Vaporwave styles
+│       ├── models/sculpture.glb # 3D model
+│       ├── music/               # MP3 tracks
+│       └── images/cyber-building/ # 60-frame scroll animation
+├── admin-app/                   # Admin Dashboard (React/Vite)
+└── music-mp3/                   # Source MP3 files
+```
