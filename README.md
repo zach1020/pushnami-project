@@ -48,9 +48,9 @@ Landing Page (:3000)  ──▶  A/B Service (:8002)  ◀──  Admin App (:300
 ## Interactive Features
 
 ### Core
-- **3D Animated Sculpture** — GLB model with play/rewind on button click, scroll-based camera orbit, and a rotating wireframe cube
-- **Lightning Effects** — Neon pink bolts strike from the viewport top to cursor and the wireframe cube on click
-- **Music Player** — Floating retro TEMPLE.FM player with playlist, seek, volume, and tracks managed via admin
+- **3D Animated Sculpture** — GLB model with play/rewind on button or sculpture click, scroll-based camera orbit, and a rotating wireframe cube
+- **Lightning Effects** — Theme-colored bolts (pink in Neon, cyan in Synthwave) strike from viewport top to cursor and the wireframe cube on click; clicking the sculpture triggers a direct cube strike
+- **Music Player** — Floating retro TEMPLE.FM player with playlist, seek, volume, and drag-and-drop track ordering via admin
 - **Matrix Rain** — Greek character rain background animation
 
 ### Scroll-Driven Video Animation
