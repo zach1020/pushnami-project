@@ -60,3 +60,5 @@ export const uploadTrack = async (file) => {
 };
 export const deleteTrack = (filename) =>
   request(`${LANDING_PAGE_URL}/api/tracks/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+export const saveTrackOrder = (filenames) =>
+  request(`${LANDING_PAGE_URL}/api/tracks/order`, { method: 'PUT', body: JSON.stringify({ order: filenames }) });

@@ -31,26 +31,62 @@ const METRICS_SERVICE_PUBLIC_URL =
   process.env.METRICS_SERVICE_PUBLIC_URL || "http://localhost:8001";
 
 app.use(cookieParser());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // CORS for admin app
 app.use("/api", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// API: list available music tracks
+// Track order persistence
+const trackOrderPath = path.join(musicDir, "track-order.json");
+
+function readTrackOrder() {
+  try {
+    if (fs.existsSync(trackOrderPath)) {
+      return JSON.parse(fs.readFileSync(trackOrderPath, "utf-8"));
+    }
+  } catch (err) {
+    console.warn("Failed to read track-order.json:", err.message);
+  }
+  return [];
+}
+
+function writeTrackOrder(order) {
+  fs.writeFileSync(trackOrderPath, JSON.stringify(order, null, 2));
+}
+
+// API: list available music tracks (respects saved order)
 app.get("/api/tracks", (req, res) => {
   const files = fs.readdirSync(musicDir).filter((f) => f.endsWith(".mp3"));
-  const tracks = files.map((f) => ({
+  const order = readTrackOrder();
+
+  // Sort: ordered files first, then any new/unordered files appended
+  const ordered = order.filter((f) => files.includes(f));
+  const unordered = files.filter((f) => !order.includes(f));
+  const sorted = [...ordered, ...unordered];
+
+  const tracks = sorted.map((f) => ({
     name: f.replace(/\.mp3$/i, ""),
     src: `/music/${encodeURIComponent(f)}`,
     filename: f,
   }));
   res.json(tracks);
+});
+
+// API: save track order
+app.put("/api/tracks/order", (req, res) => {
+  const { order } = req.body;
+  if (!Array.isArray(order)) {
+    return res.status(400).json({ detail: "order must be an array of filenames" });
+  }
+  writeTrackOrder(order);
+  res.json({ ok: true });
 });
 
 // API: upload MP3
@@ -59,6 +95,12 @@ app.post("/api/tracks/upload", upload.single("file"), (req, res) => {
   // Rename from multer temp name to original filename
   const dest = path.join(musicDir, req.file.originalname);
   fs.renameSync(req.file.path, dest);
+  // Append to track order
+  const order = readTrackOrder();
+  if (!order.includes(req.file.originalname)) {
+    order.push(req.file.originalname);
+    writeTrackOrder(order);
+  }
   res.status(201).json({
     name: req.file.originalname.replace(/\.mp3$/i, ""),
     src: `/music/${encodeURIComponent(req.file.originalname)}`,
@@ -71,6 +113,13 @@ app.delete("/api/tracks/:filename", (req, res) => {
   const filepath = path.join(musicDir, req.params.filename);
   if (!fs.existsSync(filepath)) return res.status(404).json({ detail: "Not found" });
   fs.unlinkSync(filepath);
+  // Remove from track order
+  const order = readTrackOrder();
+  const idx = order.indexOf(req.params.filename);
+  if (idx !== -1) {
+    order.splice(idx, 1);
+    writeTrackOrder(order);
+  }
   res.sendStatus(204);
 });
 
@@ -82,7 +131,7 @@ app.get("/", async (req, res) => {
   }
 
   // Fetch experiments and feature toggles from A/B service (server-side)
-  let variant = "neon";
+  let variant = "synthwave";
   let experimentId = null;
   let toggles = {};
 
@@ -149,6 +198,7 @@ function renderPage(visitorId, variant, experimentId, toggles) {
   const showGlitch = toggles.hero_glitch !== false;
   const showTestimonials = toggles.show_testimonials !== false;
   const showMusicPlayer = toggles.show_music_player !== false;
+  const showScrollVideo = toggles.show_scroll_video !== false;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -178,11 +228,11 @@ function renderPage(visitorId, variant, experimentId, toggles) {
 
   <!-- Navigation -->
   <nav class="cyber-nav">
-    <div class="nav-brand">
+    <a href="#hero" class="nav-brand">
       <span class="brand-icon">\u2BE4</span>
       <span class="brand-text">PUSHNAMI</span>
       <span class="nav-version">MMXXVI</span>
-    </div>
+    </a>
     <div class="nav-links">
       <a href="#features" class="nav-link" data-track="nav_features">VIRTUES</a>
       <a href="#metrics" class="nav-link" data-track="nav_metrics">ORACLES</a>
@@ -196,7 +246,7 @@ function renderPage(visitorId, variant, experimentId, toggles) {
   </nav>
 
   <!-- Hero Section -->
-  <section class="hero">
+  <section id="hero" class="hero">
     <div class="hero-grid"></div>
     <div class="hero-columns-left"></div>
     <div class="hero-columns-right"></div>
@@ -256,9 +306,11 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         exposure="0.8"
         environment-image="neutral"
         interaction-prompt="none"
+        loading="eager"
         disable-zoom
         disable-pan
         interpolation-decay="100"
+        style="opacity: 0;"
       ></model-viewer>
       <div class="sculpture-glow"></div>
     </div>
@@ -394,7 +446,7 @@ function renderPage(visitorId, variant, experimentId, toggles) {
       : ""
   }
 
-  <!-- Cyber Building Scroll Animation -->
+  ${showScrollVideo ? `<!-- Cyber Building Scroll Animation -->
   <section class="cyber-building-section" id="cyber-building">
     <div class="cyber-building-sticky">
       <div class="cyber-building-frame-outer">
@@ -424,10 +476,10 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         <span class="cyber-building-progress" id="cyber-building-progress">000 / 059</span>
       </p>
     </div>
-  </section>
+  </section>` : ''}
 
   <!-- Contact / CTA Section -->
-  <section id="contact" class="contact-section">
+  <section id="contact" class="contact-section${showScrollVideo ? '' : ' no-video'}">
     <div class="contact-content">
       <div class="section-ornament">\u2740 \u2740 \u2740</div>
       <h2 class="section-title">Commune With Us</h2>
@@ -477,6 +529,7 @@ function renderPage(visitorId, variant, experimentId, toggles) {
         <input type="range" class="retro-volume-slider" id="player-volume" min="0" max="100" value="50" />
         <span class="retro-volume-pct" id="player-vol-pct">50%</span>
       </div>
+      <canvas class="retro-player-waveform" id="player-waveform"></canvas>
       <div class="retro-player-playlist" id="player-playlist"></div>
     </div>
   </div>` : ''}
@@ -499,6 +552,7 @@ function renderPage(visitorId, variant, experimentId, toggles) {
       experimentId: ${experimentId ? `"${experimentId}"` : "null"},
       metricsUrl: "${METRICS_SERVICE_PUBLIC_URL}",
       abServiceUrl: "${AB_SERVICE_PUBLIC_URL}",
+      toggles: ${JSON.stringify(toggles)},
     };
   </script>
   <script src="/script.js"></script>

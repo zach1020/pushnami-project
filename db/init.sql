@@ -64,7 +64,7 @@ VALUES (
     'Landing Page Theme',
     'Test neon vs synthwave cyberpunk theme variants',
     '["neon", "synthwave"]',
-    '{"neon": 50, "synthwave": 50}',
+    '{"neon": 0, "synthwave": 100}',
     true
 );
 
@@ -73,4 +73,8 @@ INSERT INTO feature_toggles (name, key, description, enabled, config) VALUES
     ('Matrix Rain Background', 'matrix_rain', 'Animated matrix-style rain effect on the landing page background', true, '{"speed": "medium", "density": 0.7}'),
     ('Hero Glitch Effect', 'hero_glitch', 'CSS glitch animation on the hero headline text', true, '{"intensity": "medium"}'),
     ('Testimonials Section', 'show_testimonials', 'Display the testimonials/social proof section', true, '{}'),
-    ('Music Player', 'show_music_player', 'Floating TEMPLE.FM retro music player on the landing page', true, '{}');
+    ('Music Player', 'show_music_player', 'Floating TEMPLE.FM retro music player on the landing page', true, '{}'),
+    ('Scroll Video Animation', 'show_scroll_video', 'Cyberpunk temple scroll-driven video animation between Echoes and Commune sections', true, '{}'),
+    ('Scroll Particles', 'show_scroll_particles', 'Glowing cyan orbs that float during video section scrolling', true, '{}'),
+    ('Cursor Orb', 'show_cursor_orb', 'Glowing orb that orbits the cursor with delayed follow', true, '{}'),
+    ('Neon Selection Box', 'show_neon_select', 'Click-and-drag neon selection box with digital disintegration effect', true, '{}');

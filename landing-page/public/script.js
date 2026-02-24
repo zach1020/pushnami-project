@@ -5,7 +5,8 @@
 (function () {
   "use strict";
 
-  const { visitorId, variant, experimentId, metricsUrl } = window.__CONFIG__;
+  const { visitorId, variant, experimentId, metricsUrl, toggles } = window.__CONFIG__;
+  const tog = toggles || {};
 
   // --- Event Tracking ---
   async function trackEvent(eventType, eventName, metadata = {}) {
@@ -64,15 +65,27 @@
     if (!mv) return;
 
     mv.addEventListener("load", () => {
-      // Kick-start animation system so duration becomes available
-      mv.play();
-      requestAnimationFrame(() => {
-        mv.pause();
-        sculptureAnim.duration = mv.duration;
-        mv.currentTime = 0;
-        sculptureAnim.ready = true;
-        console.log("[sculpture] ready, duration:", sculptureAnim.duration);
-      });
+      // Pause immediately — don't let it render the default pose
+      mv.pause();
+      mv.currentTime = 0;
+
+      // Duration may not be available until after a play/pause cycle.
+      // Poll until it is, keeping the model hidden at frame 0.
+      function waitForDuration() {
+        if (mv.duration && mv.duration > 0) {
+          sculptureAnim.duration = mv.duration;
+          sculptureAnim.ready = true;
+          mv.style.opacity = "1";
+          console.log("[sculpture] ready, duration:", sculptureAnim.duration);
+        } else {
+          // Briefly play and immediately pause to kick-start internals
+          mv.play();
+          mv.pause();
+          mv.currentTime = 0;
+          requestAnimationFrame(waitForDuration);
+        }
+      }
+      waitForDuration();
     });
   }
 
@@ -352,6 +365,12 @@
     });
   }
 
+  // --- Theme-aware lightning color palette ---
+  const isNeonTheme = variant === "neon";
+  const lightning = isNeonTheme
+    ? { outer: "255, 113, 206", mid: "255, 140, 220", hex: "#ff71ce", flash: "255, 113, 206" }   // pink
+    : { outer: "1, 205, 254",   mid: "80, 220, 255",  hex: "#01cdfe", flash: "1, 205, 254" };    // blue
+
   // --- Neon Lightning Strike Effect ---
   function spawnLightning(x, y) {
     const canvas = document.createElement("canvas");
@@ -413,9 +432,9 @@
         for (let i = 1; i < bolt.points.length; i++) {
           ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
         }
-        ctx.strokeStyle = `rgba(255, 113, 206, ${0.25 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(${lightning.outer}, ${0.25 * bolt.alpha})`;
         ctx.lineWidth = bolt.width + 12;
-        ctx.shadowColor = "#ff71ce";
+        ctx.shadowColor = lightning.hex;
         ctx.shadowBlur = 40;
         ctx.stroke();
 
@@ -425,9 +444,9 @@
         for (let i = 1; i < bolt.points.length; i++) {
           ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
         }
-        ctx.strokeStyle = `rgba(255, 140, 220, ${0.6 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(${lightning.mid}, ${0.6 * bolt.alpha})`;
         ctx.lineWidth = bolt.width + 4;
-        ctx.shadowColor = "#ff71ce";
+        ctx.shadowColor = lightning.hex;
         ctx.shadowBlur = 20;
         ctx.stroke();
 
@@ -437,7 +456,7 @@
         for (let i = 1; i < bolt.points.length; i++) {
           ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
         }
-        ctx.strokeStyle = `rgba(255, 230, 245, ${0.95 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * bolt.alpha})`;
         ctx.lineWidth = bolt.width;
         ctx.shadowColor = "#fff";
         ctx.shadowBlur = 8;
@@ -451,7 +470,7 @@
     drawBolts();
 
     // Brief screen flash
-    ctx.fillStyle = "rgba(255, 113, 206, 0.06)";
+    ctx.fillStyle = `rgba(${lightning.flash}, 0.06)`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Flicker effect: quickly redraw with slight variation
@@ -544,25 +563,25 @@
         ctx.beginPath();
         ctx.moveTo(bolt.points[0].x, bolt.points[0].y);
         for (let i = 1; i < bolt.points.length; i++) ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
-        ctx.strokeStyle = `rgba(255, 113, 206, ${0.25 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(${lightning.outer}, ${0.25 * bolt.alpha})`;
         ctx.lineWidth = bolt.width + 12;
-        ctx.shadowColor = "#ff71ce";
+        ctx.shadowColor = lightning.hex;
         ctx.shadowBlur = 40;
         ctx.stroke();
         // Mid glow
         ctx.beginPath();
         ctx.moveTo(bolt.points[0].x, bolt.points[0].y);
         for (let i = 1; i < bolt.points.length; i++) ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
-        ctx.strokeStyle = `rgba(255, 140, 220, ${0.6 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(${lightning.mid}, ${0.6 * bolt.alpha})`;
         ctx.lineWidth = bolt.width + 4;
-        ctx.shadowColor = "#ff71ce";
+        ctx.shadowColor = lightning.hex;
         ctx.shadowBlur = 20;
         ctx.stroke();
         // Core
         ctx.beginPath();
         ctx.moveTo(bolt.points[0].x, bolt.points[0].y);
         for (let i = 1; i < bolt.points.length; i++) ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
-        ctx.strokeStyle = `rgba(255, 230, 245, ${0.95 * bolt.alpha})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * bolt.alpha})`;
         ctx.lineWidth = bolt.width;
         ctx.shadowColor = "#fff";
         ctx.shadowBlur = 8;
@@ -589,13 +608,23 @@
     setTimeout(() => canvas.remove(), 650);
   }
 
-  // Attach lightning to all button clicks
+  // Attach lightning to button clicks (not sculpture area)
   document.addEventListener("click", function (e) {
+    // Skip if clicking inside the sculpture section
+    if (e.target.closest(".sculpture-section")) return;
     const btn = e.target.closest(".cyber-btn, button[type='submit']");
     if (btn) {
       spawnLightning(e.clientX, e.clientY);
       // Separate bolt strikes the cube with a slight delay
       setTimeout(() => strikeCube(), 80);
+    }
+  });
+
+  // Clicking the sculpture/cube area: strike cube + toggle animation
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".sculpture-section")) {
+      strikeCube();
+      toggleSculpture();
     }
   });
 
@@ -613,8 +642,101 @@
 
     const audio = new Audio();
     audio.volume = 0.5;
+    audio.crossOrigin = "anonymous";
     let currentIdx = 0;
     let isPlaying = false;
+
+    // Web Audio API for waveform visualizer
+    let audioCtx = null;
+    let analyser = null;
+    let sourceNode = null;
+    let freqData = null;
+
+    function ensureAudioContext() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      analyser.smoothingTimeConstant = 0.8;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      sourceNode = audioCtx.createMediaElementSource(audio);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+
+    // Waveform canvas
+    const waveCanvas = document.getElementById("player-waveform");
+    const waveCtx = waveCanvas ? waveCanvas.getContext("2d") : null;
+    let waveRafId = null;
+
+    function sizeWaveCanvas() {
+      if (!waveCanvas) return;
+      waveCanvas.width = waveCanvas.clientWidth * (window.devicePixelRatio || 1);
+      waveCanvas.height = waveCanvas.clientHeight * (window.devicePixelRatio || 1);
+    }
+    if (waveCanvas) {
+      sizeWaveCanvas();
+      window.addEventListener("resize", sizeWaveCanvas);
+    }
+
+    function drawWaveform() {
+      if (!waveCtx || !analyser) { waveRafId = null; return; }
+      analyser.getByteFrequencyData(freqData);
+
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      waveCtx.clearRect(0, 0, w, h);
+
+      const bars = analyser.frequencyBinCount;
+      const barW = w / bars;
+      const dpr = window.devicePixelRatio || 1;
+
+      for (let i = 0; i < bars; i++) {
+        const val = freqData[i] / 255;
+        const barH = val * h;
+        const x = i * barW;
+        const y = h - barH;
+
+        // Gradient from purple at bottom to pink at top
+        const grad = waveCtx.createLinearGradient(x, h, x, y);
+        grad.addColorStop(0, "rgba(185, 103, 255, 0.9)");
+        grad.addColorStop(0.6, "rgba(255, 113, 206, 0.8)");
+        grad.addColorStop(1, "rgba(1, 205, 254, 0.7)");
+        waveCtx.fillStyle = grad;
+        waveCtx.fillRect(x + 0.5 * dpr, y, barW - 1 * dpr, barH);
+
+        // Top glow cap
+        if (val > 0.05) {
+          waveCtx.fillStyle = `rgba(255, 230, 245, ${val * 0.6})`;
+          waveCtx.fillRect(x + 0.5 * dpr, y, barW - 1 * dpr, 2 * dpr);
+        }
+      }
+
+      // Scanline overlay
+      waveCtx.fillStyle = "rgba(0, 0, 0, 0.08)";
+      for (let y = 0; y < h; y += 4 * dpr) {
+        waveCtx.fillRect(0, y, w, 1 * dpr);
+      }
+
+      waveRafId = requestAnimationFrame(drawWaveform);
+    }
+
+    function startWaveform() {
+      ensureAudioContext();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      if (!waveRafId) waveRafId = requestAnimationFrame(drawWaveform);
+    }
+
+    function stopWaveform() {
+      if (waveRafId) {
+        cancelAnimationFrame(waveRafId);
+        waveRafId = null;
+      }
+      // Draw flat line
+      if (waveCtx) {
+        waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+      }
+    }
 
     const playBtn = document.getElementById("player-play");
     const prevBtn = document.getElementById("player-prev");
@@ -664,6 +786,7 @@
       audio.play();
       isPlaying = true;
       playBtn.textContent = "\u23F8";
+      startWaveform();
       trackEvent("click", "music_play", { track: tracks[currentIdx].name });
     }
 
@@ -671,6 +794,7 @@
       audio.pause();
       isPlaying = false;
       playBtn.textContent = "\u25B6";
+      stopWaveform();
       trackEvent("click", "music_pause", { track: tracks[currentIdx].name });
     }
 
@@ -775,28 +899,39 @@
     let currentFrame = -1;
     const contactSection = document.getElementById("contact");
 
+    // Theme-aware color for particles
+    const particleRgb = getComputedStyle(document.documentElement).getPropertyValue("--primary-rgb").trim();
+
     // --- Particle system (two fixed canvases: behind + in front of video) ---
-    const backCanvas = document.createElement("canvas");
-    backCanvas.className = "cyber-particles-layer cyber-particles-back";
-    document.body.appendChild(backCanvas);
+    const particlesEnabled = tog.show_scroll_particles !== false;
+    let backCanvas, frontCanvas, backCtx, frontCtx;
 
-    const frontCanvas = document.createElement("canvas");
-    frontCanvas.className = "cyber-particles-layer cyber-particles-front";
-    document.body.appendChild(frontCanvas);
+    if (particlesEnabled) {
+      backCanvas = document.createElement("canvas");
+      backCanvas.className = "cyber-particles-layer cyber-particles-back";
+      document.body.appendChild(backCanvas);
 
-    const backCtx = backCanvas.getContext("2d");
-    const frontCtx = frontCanvas.getContext("2d");
+      frontCanvas = document.createElement("canvas");
+      frontCanvas.className = "cyber-particles-layer cyber-particles-front";
+      document.body.appendChild(frontCanvas);
+
+      backCtx = backCanvas.getContext("2d");
+      frontCtx = frontCanvas.getContext("2d");
+    }
     const particles = [];
     let lastScrollY = window.scrollY;
     let scrollDir = -1; // -1 = up (scroll down), 1 = down (scroll up)
     let particleRafId = null;
 
     function sizeParticleCanvases() {
+      if (!particlesEnabled) return;
       backCanvas.width = frontCanvas.width = window.innerWidth;
       backCanvas.height = frontCanvas.height = window.innerHeight;
     }
-    sizeParticleCanvases();
-    window.addEventListener("resize", sizeParticleCanvases);
+    if (particlesEnabled) {
+      sizeParticleCanvases();
+      window.addEventListener("resize", sizeParticleCanvases);
+    }
 
     function spawnParticles(count, intensity, dir) {
       const w = frontCanvas.width;
@@ -825,19 +960,19 @@
       // Outer glow
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(1, 205, 254, ${(a * 0.2).toFixed(3)})`;
+      ctx.fillStyle = `rgba(${particleRgb}, ${(a * 0.2).toFixed(3)})`;
       ctx.fill();
 
       // Mid glow
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(1, 205, 254, ${(a * 0.5).toFixed(3)})`;
+      ctx.fillStyle = `rgba(${particleRgb}, ${(a * 0.5).toFixed(3)})`;
       ctx.fill();
 
       // Bright core
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(220, 245, 255, ${(a * 0.95).toFixed(3)})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${(a * 0.95).toFixed(3)})`;
       ctx.fill();
     }
 
@@ -896,25 +1031,26 @@
       }
 
       // Spawn particles on scroll
-      const currentScrollY = window.scrollY;
-      const scrollDelta = currentScrollY - lastScrollY;
-      const absDelta = Math.abs(scrollDelta);
-      // Scroll down → particles float up (-1), scroll up → particles float down (+1)
-      if (absDelta > 1) scrollDir = scrollDelta > 0 ? -1 : 1;
-      lastScrollY = currentScrollY;
+      if (particlesEnabled) {
+        const currentScrollY = window.scrollY;
+        const scrollDelta = currentScrollY - lastScrollY;
+        const absDelta = Math.abs(scrollDelta);
+        if (absDelta > 1) scrollDir = scrollDelta > 0 ? -1 : 1;
+        lastScrollY = currentScrollY;
 
-      const inSection = progress > 0.02 && progress < 0.98;
-      const showCanvases = inSection || particles.length > 0 ? "block" : "none";
-      backCanvas.style.display = showCanvases;
-      frontCanvas.style.display = showCanvases;
+        const inSection = progress > 0.02 && progress < 0.98;
+        const showCanvases = inSection || particles.length > 0 ? "block" : "none";
+        backCanvas.style.display = showCanvases;
+        frontCanvas.style.display = showCanvases;
 
-      if (absDelta > 1 && inSection) {
-        const spawnCount = Math.min(3, Math.ceil(absDelta / 12));
-        const intensity = 0.4 + progress * 0.6;
-        spawnParticles(spawnCount, intensity, scrollDir);
+        if (absDelta > 1 && inSection) {
+          const spawnCount = Math.min(3, Math.ceil(absDelta / 12));
+          const intensity = 0.4 + progress * 0.6;
+          spawnParticles(spawnCount, intensity, scrollDir);
 
-        if (!particleRafId) {
-          particleRafId = requestAnimationFrame(tickParticles);
+          if (!particleRafId) {
+            particleRafId = requestAnimationFrame(tickParticles);
+          }
         }
       }
     }
@@ -1048,6 +1184,9 @@
       disintegrate(deadBox, rect);
     });
 
+    // Theme-aware primary color for fragments
+    const selectRgb = getComputedStyle(document.documentElement).getPropertyValue("--primary-rgb").trim();
+
     // Reusable canvas for disintegration — no DOM element spam
     const disintCanvas = document.createElement("canvas");
     disintCanvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9997;display:none;";
@@ -1116,8 +1255,8 @@
         const s = 0.5 + f.alpha * 0.5;
         disintCtx.scale(s, s);
         disintCtx.globalAlpha = f.alpha;
-        disintCtx.fillStyle = "rgba(1, 205, 254, 0.7)";
-        disintCtx.shadowColor = "rgba(1, 205, 254, 0.5)";
+        disintCtx.fillStyle = `rgba(${selectRgb}, 0.7)`;
+        disintCtx.shadowColor = `rgba(${selectRgb}, 0.5)`;
         disintCtx.shadowBlur = 4;
         disintCtx.fillRect(-f.w / 2, -f.h / 2, f.w, f.h);
         disintCtx.restore();
@@ -1139,9 +1278,9 @@
     initSculpture();
     initSculptureScrollRotation();
     initMusicPlayer();
-    initCyberBuilding();
-    initCursorOrb();
-    initNeonSelect();
+    if (tog.show_scroll_video !== false) initCyberBuilding();
+    if (tog.show_cursor_orb !== false) initCursorOrb();
+    if (tog.show_neon_select !== false) initNeonSelect();
   });
 
   // Track time on page

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { getToggles, updateToggle, getTracks, uploadTrack, deleteTrack } from '../api'
+import { getToggles, updateToggle, getTracks, uploadTrack, deleteTrack, saveTrackOrder } from '../api'
 
 export default function FeatureToggles() {
   const [toggles, setToggles] = useState([])
@@ -9,6 +9,8 @@ export default function FeatureToggles() {
   const [tracks, setTracks] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState(null)
+  const [dragIdx, setDragIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -74,6 +76,45 @@ export default function FeatureToggles() {
     } catch (err) {
       setUploadMsg(`Delete error: ${err.message}`)
     }
+  }
+
+  function handleDragStart(e, idx) {
+    setDragIdx(idx)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, idx) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIdx(idx)
+  }
+
+  function handleDragLeave() {
+    setDragOverIdx(null)
+  }
+
+  async function handleDrop(e, dropIdx) {
+    e.preventDefault()
+    setDragOverIdx(null)
+    if (dragIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null)
+      return
+    }
+    const reordered = [...tracks]
+    const [moved] = reordered.splice(dragIdx, 1)
+    reordered.splice(dropIdx, 0, moved)
+    setTracks(reordered)
+    setDragIdx(null)
+    try {
+      await saveTrackOrder(reordered.map((t) => t.filename))
+    } catch (err) {
+      setUploadMsg(`Reorder error: ${err.message}`)
+    }
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null)
+    setDragOverIdx(null)
   }
 
   if (loading) return <div className="loading-state">LOADING TOGGLE STATES...</div>
@@ -151,8 +192,22 @@ export default function FeatureToggles() {
           {tracks.length === 0 ? (
             <div className="empty-state">No tracks uploaded yet.</div>
           ) : (
-            tracks.map((track) => (
-              <div key={track.filename} className="track-row">
+            tracks.map((track, i) => (
+              <div
+                key={track.filename}
+                className={
+                  'track-row' +
+                  (dragIdx === i ? ' dragging' : '') +
+                  (dragOverIdx === i ? ' drag-over' : '')
+                }
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+              >
+                <span className="track-drag-handle" title="Drag to reorder">⠿</span>
                 <span className="track-name">{track.name}</span>
                 <button
                   className="track-delete"
